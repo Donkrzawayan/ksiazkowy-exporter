@@ -1,0 +1,18 @@
+{
+  "name": "Książkowy eksporter",
+  "description": "Rozszerzenie do eksportowania przeczytanych książek z serwisu lubimyczytac.pl",
+  "version": "1.0",
+  "manifest_version": 3,
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "images/icon.png"
+  },
+  "content_scripts": [
+    {
+      "js": ["scripts/popup.js"],
+      "matches": [
+        "https://lubimyczytac.pl/*"
+      ]
+    }
+  ]
+}
