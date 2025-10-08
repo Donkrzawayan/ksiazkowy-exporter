@@ -9,7 +9,7 @@
   },
   "content_scripts": [
     {
-      "js": ["scripts/popup.js"],
+      "js": ["scripts/content.js"],
       "matches": [
         "https://lubimyczytac.pl/*"
       ]
