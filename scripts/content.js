@@ -1,6 +1,3 @@
-// Content script for lubimyczytac.pl/biblioteczka
-// Listens for message from popup to export books to CSV
-
 function escapeCSV(val) {
     if (val == null) return "";
     val = String(val);
@@ -10,37 +7,62 @@ function escapeCSV(val) {
     return val;
 }
 
-function getBooks() {
-    // Adjust selectors based on actual page structure
-    const rows = document.querySelectorAll('#booksFilteredList');
+function getBooksFromPage() {
+    const rows = document.querySelectorAll('.authorAllBooks__single');
     const books = [];
     rows.forEach(row => {
+        // Title
         const title = row.querySelector('.authorAllBooks__singleTextTitle')?.innerText.trim() || "";
-        const author = row.querySelector('.authorAllBooks__singleTextAuthor')?.innerText.trim() || "";
-        const isbn = row.querySelector('[data-isbn]')?.innerText.trim() || "";
-        const myRating = row.querySelector('.my-rating, [data-my-rating]')?.innerText.trim() || "";
-        const avgRating = row.querySelector('.avg-rating, .listLibrary__ratingStarsNumber')?.innerText.trim() || "";
-        const publisher = row.querySelector('.publisher, [data-publisher]')?.innerText.trim() || "";
-        const binding = row.querySelector('.binding, [data-binding]')?.innerText.trim() || "";
-        const yearPublished = row.querySelector('.year-published, [data-year-published]')?.innerText.trim() || "";
-        const origPubYear = row.querySelector('.orig-pub-year, [data-original-publication-year]')?.innerText.trim() || "";
-        const dateRead = row.querySelector('.authorAllBooks__read-dates')?.innerText.trim() || "";
-        const dateAdded = row.querySelector('.date-added, [data-date-added]')?.innerText.trim() || "";
+        // Author(s)
+        const authorLinks = row.querySelectorAll('.authorAllBooks__singleTextAuthor a');
+        let author = "";
+        if (authorLinks.length > 0) {
+            author = Array.from(authorLinks).map(a => a.innerText.trim()).join(', ');
+        } else {
+            author = row.querySelector('.authorAllBooks__singleTextAuthor')?.innerText.trim() || "";
+        }
+        // Average Rating
+        const avgRating = row.querySelector('.listLibrary__ratingStarsNumber')?.innerText.trim() || "";
+        // Date Read
+        let dateRead = "";
+        const dateReadDiv = row.querySelector('.authorAllBooks__read-dates');
+        if (dateReadDiv) {
+            const match = dateReadDiv.innerText.match(/\d{4}-\d{2}-\d{2}/);
+            dateRead = match ? match[0] : "";
+        }
+        // Date Added (not available, leave empty)
+        const dateAdded = "";
+        // Shelves
         const shelves = row.querySelector('.authorAllBooks__singleTextShelfRight')?.innerText.trim() || "";
-        const bookshelves = row.querySelector('.bookshelves, [data-bookshelves]')?.innerText.trim() || "";
-        const myReview = row.querySelector('.my-review, [data-my-review]')?.innerText.trim() || "";
         books.push([
-            title, author, isbn, myRating, avgRating, publisher, binding, yearPublished, origPubYear, dateRead, dateAdded, shelves, bookshelves, myReview
+            title, author, "", "", avgRating, "", "", "", "", dateRead, dateAdded, shelves, "", ""
         ]);
     });
     return books;
 }
 
-function exportBooksToCSV() {
+async function getAllBooks() {
+    let allBooks = [];
+    while (true) {
+        allBooks = allBooks.concat(getBooksFromPage());
+        // Find next page button
+        const nextBtn = document.querySelector('.page-item.next-page:not(.disabled) a.page-link');
+        if (nextBtn && nextBtn.getAttribute('data-page')) {
+            nextBtn.click();
+            // Wait for DOM update
+            await new Promise(resolve => setTimeout(resolve, 1200));
+        } else {
+            break;
+        }
+    }
+    return allBooks;
+}
+
+async function exportBooksToCSV() {
     const headers = [
         "Title", "Author", "ISBN", "My Rating", "Average Rating", "Publisher", "Binding", "Year Published", "Original Publication Year", "Date Read", "Date Added", "Shelves", "Bookshelves", "My Review"
     ];
-    const books = getBooks();
+    const books = await getAllBooks();
     let csv = headers.join(',') + '\r\n';
     books.forEach(book => {
         csv += book.map(escapeCSV).join(',') + '\r\n';
