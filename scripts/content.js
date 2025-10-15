@@ -57,7 +57,7 @@ async function getBooksFromPage(includeRating, includeReview) {
         let dateRead = "";
         const dateReadDiv = row.querySelector('.authorAllBooks__read-dates');
         if (dateReadDiv) {
-            const match = dateReadDiv.innerText.match(/\d{4}-\d{2}-\d{2}/);
+            const match = dateReadDiv.innerText.match(/\d{4}(?:-\d{2}(?:-\d{2})?)?/);
             dateRead = match ? match[0] : "";
         }
         // Shelves
@@ -114,6 +114,10 @@ async function getAllBooks(includeRating, includeReview) {
 }
 
 async function exportBooksToCSV(request) {
+    if (!window.location.href.startsWith('https://lubimyczytac.pl/biblioteczka')) {
+        alert('To rozszerzenie działa tylko na https://lubimyczytac.pl/biblioteczka');
+        return;
+    }
     const headers = [
         "Title", "Author", "ISBN", "My Rating", "Average Rating", "Publisher", "Binding", "Year Published", "Original Publication Year", "Date Read", "Date Added", "Shelves", "Bookshelves", "My Review"
     ];
