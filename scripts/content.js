@@ -7,10 +7,10 @@ function escapeCSV(val) {
     return val;
 }
 
-function getBooksFromPage() {
+async function getBooksFromPage(includeRating, includeReview) {
     const rows = document.querySelectorAll('.authorAllBooks__single');
     const books = [];
-    rows.forEach(row => {
+    for (const row of rows) {
         // Title
         const title = row.querySelector('.authorAllBooks__singleTextTitle')?.innerText.trim() || "";
         // Author(s)
@@ -30,21 +30,31 @@ function getBooksFromPage() {
             const match = dateReadDiv.innerText.match(/\d{4}-\d{2}-\d{2}/);
             dateRead = match ? match[0] : "";
         }
-        // Date Added (not available, leave empty)
-        const dateAdded = "";
         // Shelves
         const shelves = row.querySelector('.authorAllBooks__singleTextShelfRight')?.innerText.trim() || "";
+        // My Rating
+        let myRating = "";
+        if (includeRating) {
+            myRating = row.querySelector('.listLibrary__ratingStarsNumber')?.innerText.trim() || "";
+        }
+        // Book details page URL
+        const bookLink = row.querySelector('.authorAllBooks__singleTextTitle a')?.href;
+        // My Review
+        let myReview = "";
+        if (includeReview) {
+            myReview = row.querySelector('.expandTextNoJS')?.innerText.trim() || "";
+        }
         books.push([
-            title, author, "", "", avgRating, "", "", "", "", dateRead, dateAdded, shelves, "", ""
+            title, author, "", myRating, avgRating, "", "", "", "", dateRead, "", shelves, "", myReview
         ]);
-    });
+    }
     return books;
 }
 
-async function getAllBooks() {
+async function getAllBooks(includeRating, includeReview) {
     let allBooks = [];
     while (true) {
-        allBooks = allBooks.concat(getBooksFromPage());
+        allBooks = allBooks.concat(await getBooksFromPage(includeRating, includeReview));
         // Find next page button
         const nextBtn = document.querySelector('.page-item.next-page:not(.disabled) a.page-link');
         if (nextBtn && nextBtn.getAttribute('data-page')) {
@@ -58,11 +68,13 @@ async function getAllBooks() {
     return allBooks;
 }
 
-async function exportBooksToCSV() {
+async function exportBooksToCSV(request) {
     const headers = [
         "Title", "Author", "ISBN", "My Rating", "Average Rating", "Publisher", "Binding", "Year Published", "Original Publication Year", "Date Read", "Date Added", "Shelves", "Bookshelves", "My Review"
     ];
-    const books = await getAllBooks();
+    const includeRating = request?.includeRating ?? true;
+    const includeReview = request?.includeReview ?? true;
+    const books = await getAllBooks(includeRating, includeReview);
     let csv = headers.join(',') + '\r\n';
     books.forEach(book => {
         csv += book.map(escapeCSV).join(',') + '\r\n';
@@ -82,7 +94,7 @@ async function exportBooksToCSV() {
 if (typeof chrome !== 'undefined' && chrome.runtime) {
     chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         if (request.action === 'export_books_csv') {
-            exportBooksToCSV();
+            exportBooksToCSV(request);
         }
     });
 }
