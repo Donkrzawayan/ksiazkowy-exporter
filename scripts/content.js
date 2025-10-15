@@ -1,3 +1,19 @@
+// Fetch book details from book page: ISBN
+async function getBookDetails(bookUrl) {
+    try {
+        const response = await fetch(bookUrl);
+        const html = await response.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        // ISBN
+        let isbn = doc.querySelector('meta[property="books:isbn"]')?.content ||
+                   doc.querySelector('meta[name="isbn"]')?.content || "";
+        return isbn;
+    } catch (e) {
+        return "";
+    }
+}
+
 function escapeCSV(val) {
     if (val == null) return "";
     val = String(val);
@@ -44,20 +60,20 @@ async function getBooksFromPage(includeRating, includeReview) {
         }
         // Shelves
         const shelves = row.querySelector('.authorAllBooks__singleTextShelfRight')?.innerText.trim() || "";
-        // My Rating
-        let myRating = "";
-        if (includeRating) {
-            myRating = row.querySelector('.listLibrary__ratingStarsNumber')?.innerText.trim() || "";
-        }
-        // Book details page URL
-        const bookLink = row.querySelector('.authorAllBooks__singleTextTitle a')?.href;
         // My Review
         let myReview = "";
         if (includeReview) {
             myReview = row.querySelector('.expandTextNoJS')?.innerText.trim() || "";
         }
+        // Book details page URL
+        const bookLink = row.querySelector('.authorAllBooks__singleTextTitle')?.href;
+        let isbn = "";
+        if (bookLink) {
+            isbn = await getBookDetails(bookLink);
+        }
+        
         books.push([
-            title, author, "", myRating, avgRating, "", "", "", "", dateRead, "", shelves, "", myReview
+            title, author, isbn, myRating, avgRating, "", "", "", "", dateRead, "", shelves, "", myReview
         ]);
     }
     return books;
