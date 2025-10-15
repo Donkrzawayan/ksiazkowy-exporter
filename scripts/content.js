@@ -21,8 +21,20 @@ async function getBooksFromPage(includeRating, includeReview) {
         } else {
             author = row.querySelector('.authorAllBooks__singleTextAuthor')?.innerText.trim() || "";
         }
-        // Average Rating
-        const avgRating = row.querySelector('.listLibrary__ratingStarsNumber')?.innerText.trim() || "";
+        // Ratings
+        let avgRating = "";
+        let myRating = "";
+        const ratingNodes = row.querySelectorAll('.listLibrary__ratingStarsNumber');
+        ratingNodes.forEach(node => {
+            // Find the closest .listLibrary__ratingText in the parent .listLibrary__rating
+            const ratingDiv = node.closest('.listLibrary__rating');
+            const label = ratingDiv?.querySelector('.listLibrary__ratingText')?.textContent?.trim() || "";
+            if (includeRating && label.includes('Twoja ocena')) {
+                myRating = node.innerText.trim();
+            } else if (label.includes('Średnia ocen')) {
+                avgRating = node.innerText.trim();
+            }
+        });
         // Date Read
         let dateRead = "";
         const dateReadDiv = row.querySelector('.authorAllBooks__read-dates');
