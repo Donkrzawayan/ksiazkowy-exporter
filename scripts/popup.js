@@ -18,3 +18,39 @@ document.addEventListener('DOMContentLoaded', function() {
 		});
 	}
 });
+
+let translations = {};
+async function loadTranslations(lang) {
+    try {
+        const res = await fetch(`locales/${lang}.json`);
+        translations[lang] = await res.json();
+        setLang(lang);
+    } catch (e) {
+        translations[lang] = {
+            title: lang,
+            labelRating: lang,
+            labelReview: lang,
+            exportBtn: lang
+        };
+        setLang(lang);
+    }
+}
+
+function setLang(lang) {
+    const t = translations[lang];
+    if (!t) return;
+    document.getElementById('title').textContent = t.title;
+    document.getElementById('label-rating').textContent = t.labelRating;
+    document.getElementById('label-review').textContent = t.labelReview;
+    document.getElementById('export-btn').textContent = t.exportBtn;
+    document.documentElement.lang = lang;
+}
+
+function getBrowserLang() {
+    const lang = navigator.language || navigator.userLanguage || 'pl';
+    if (lang.startsWith('en')) return 'en';
+    return 'pl';
+}
+
+const browserLang = getBrowserLang();
+loadTranslations(browserLang);

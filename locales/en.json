@@ -1,0 +1,6 @@
+{
+  "title": "Book Exporter",
+  "labelRating": "Include my ratings",
+  "labelReview": "Include my reviews",
+  "exportBtn": "Export books to CSV"
+}
