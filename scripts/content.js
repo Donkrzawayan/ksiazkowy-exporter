@@ -26,6 +26,8 @@ function escapeCSV(val) {
 async function getBooksFromPage(includeRating, includeReview) {
     const rows = document.querySelectorAll('.authorAllBooks__single');
     const books = [];
+    const bookDetailPromises = [];
+
     for (const row of rows) {
         // Title
         const title = row.querySelector('.authorAllBooks__singleTextTitle')?.innerText.trim() || "";
@@ -67,16 +69,31 @@ async function getBooksFromPage(includeRating, includeReview) {
         }
         // Book details page URL
         const bookLink = row.querySelector('.authorAllBooks__singleTextTitle')?.href;
-        let isbn = "";
-        if (bookLink) {
-            isbn = await getBookDetails(bookLink);
-        }
         
-        books.push([
-            title, author, isbn, myRating, avgRating, "", "", "", "", dateRead, "", shelves, "", myReview
-        ]);
+        bookDetailPromises.push(
+            bookLink ? getBookDetails(bookLink) : Promise.resolve("")
+        );
+
+        books.push({
+            title, author, myRating, avgRating, dateRead, shelves, myReview
+        });
     }
-    return books;
+
+    const isbns = await Promise.all(bookDetailPromises);
+
+    return books.map((book, idx) => [
+        book.title,
+        book.author,
+        isbns[idx],
+        book.myRating,
+        book.avgRating,
+        "", "", "", "", // publisher, binding, year published, original year
+        book.dateRead,
+        "", // date added
+        book.shelves,
+        "", // bookshelves
+        book.myReview
+    ]);
 }
 
 async function getAllBooks(includeRating, includeReview) {
