@@ -11,15 +11,20 @@
       <h1 id="title"></h1>
     </div>
     <div class="card p-3 shadow-sm">
-      <div class="form-check mb-2">
-        <input class="form-check-input" type="checkbox" id="include-rating" checked>
-        <label class="form-check-label" for="include-rating" id="label-rating"></label>
+      <div id="form-container">
+        <div class="form-check mb-2">
+          <input class="form-check-input" type="checkbox" id="include-rating" checked>
+          <label class="form-check-label" for="include-rating" id="label-rating"></label>
+        </div>
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" id="include-review" checked>
+          <label class="form-check-label" for="include-review" id="label-review"></label>
+        </div>
+        <button id="export-btn" class="btn btn-primary w-100"></button>
       </div>
-      <div class="form-check mb-3">
-        <input class="form-check-input" type="checkbox" id="include-review" checked>
-        <label class="form-check-label" for="include-review" id="label-review"></label>
+      <div id="not-on-page" style="display:none;">
+        <p class="mb-0 text-center"><span id="not-on-page-text"></span> <a id="biblioteczka-link" href="https://lubimyczytac.pl/biblioteczka" target="_blank" rel="noopener"></a></p>
       </div>
-      <button id="export-btn" class="btn btn-primary w-100"></button>
     </div>
   </div>
   <script src="scripts/popup.js"></script>

@@ -3,6 +3,8 @@ document.addEventListener('DOMContentLoaded', function() {
 	const btn = document.getElementById('export-btn');
 	const ratingCheckbox = document.getElementById('include-rating');
 	const reviewCheckbox = document.getElementById('include-review');
+    const formContainer = document.getElementById('form-container');
+    const notOnPage = document.getElementById('not-on-page');
 	if (btn) {
 		btn.addEventListener('click', function() {
 			// Send message to content script in active tab with checkbox states
@@ -17,6 +19,48 @@ document.addEventListener('DOMContentLoaded', function() {
 			}
 		});
 	}
+
+    // Check active tab URL and toggle UI: show form only when on exact lubimyczytac biblioteczka page
+    function isBiblioteczkaUrl(url) {
+        try {
+            const u = new URL(url);
+            return u.protocol === 'https:' && u.hostname === 'lubimyczytac.pl' && u.pathname.replace(/\/+$/,'') === '/biblioteczka';
+        } catch (e) {
+            return false;
+        }
+    }
+
+    // Helper that updates the UI based on the currently active tab
+    function updateForActiveTab() {
+        if (!(chrome && chrome.tabs)) return;
+        debugger;
+        chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+            const tab = tabs && tabs[0];
+            const ok = tab && isBiblioteczkaUrl(tab.url);
+            if (ok) {
+                if (formContainer) formContainer.style.display = '';
+                if (notOnPage) notOnPage.style.display = 'none';
+            } else {
+                if (formContainer) formContainer.style.display = 'none';
+                if (notOnPage) notOnPage.style.display = '';
+            }
+        });
+    }
+
+    // Refresh when active tab changes or when a tab's URL updates while popup is open
+    if (chrome && chrome.tabs) {
+        updateForActiveTab();
+        try {
+            chrome.tabs.onActivated.addListener(function() {
+                updateForActiveTab();
+            });
+        } catch (e) { }
+        try {
+            chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab) {
+                if (changeInfo && changeInfo.url) updateForActiveTab();
+            });
+        } catch (e) { }
+    }
 });
 
 let translations = {};
@@ -26,13 +70,7 @@ async function loadTranslations(lang) {
         translations[lang] = await res.json();
         setLang(lang);
     } catch (e) {
-        translations[lang] = {
-            title: lang,
-            labelRating: lang,
-            labelReview: lang,
-            exportBtn: lang
-        };
-        setLang(lang);
+        console.error('Error loading translations for', lang, e);
     }
 }
 
@@ -44,6 +82,11 @@ function setLang(lang) {
     document.getElementById('label-review').textContent = t.labelReview;
     document.getElementById('export-btn').textContent = t.exportBtn;
     document.documentElement.lang = lang;
+    // populate not-on-page texts if present
+    const noPageTextEl = document.getElementById('not-on-page-text');
+    const biblLinkEl = document.getElementById('biblioteczka-link');
+    if (noPageTextEl) noPageTextEl.textContent = t.notOnPageText;
+    if (biblLinkEl) biblLinkEl.textContent = t.biblioteczkaUrl;
 }
 
 function getBrowserLang() {

@@ -114,10 +114,6 @@ async function getAllBooks(includeRating, includeReview) {
 }
 
 async function exportBooksToCSV(request) {
-    if (!window.location.href.startsWith('https://lubimyczytac.pl/biblioteczka')) {
-        alert('To rozszerzenie działa tylko na https://lubimyczytac.pl/biblioteczka');
-        return;
-    }
     const headers = [
         "Title", "Author", "ISBN", "My Rating", "Average Rating", "Publisher", "Binding", "Year Published", "Original Publication Year", "Date Read", "Date Added", "Shelves", "Bookshelves", "My Review"
     ];

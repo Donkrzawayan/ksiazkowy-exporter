@@ -2,5 +2,7 @@
   "title": "Książkowy eksporter",
   "labelRating": "Uwzględnij moje oceny",
   "labelReview": "Uwzględnij moje recenzje",
-  "exportBtn": "Eksportuj bibliotekę do CSV"
+  "exportBtn": "Eksportuj bibliotekę do CSV",
+  "notOnPageText": "Przejdź na stronę",
+  "biblioteczkaUrl": "https://lubimyczytac.pl/biblioteczka"
 }
