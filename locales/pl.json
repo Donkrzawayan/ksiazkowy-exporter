@@ -4,5 +4,7 @@
   "labelReview": "Uwzględnij moje recenzje",
   "exportBtn": "Eksportuj bibliotekę do CSV",
   "notOnPageText": "Przejdź na stronę",
-  "biblioteczkaUrl": "https://lubimyczytac.pl/biblioteczka"
+  "biblioteczkaUrl": "https://lubimyczytac.pl/biblioteczka",
+  "labelGoodreads": "Konwertuj do formatu goodreads.com ⓘ",
+  "labelGoodreadsTitle": "Goodreads używa m.in. skali od 1 do 5 gwiazdek, tłumaczenie wbudowanych półek itd."
 }

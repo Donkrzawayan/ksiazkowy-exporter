@@ -69,7 +69,7 @@ async function getBooksFromPage(includeRating, includeReview) {
         }
         // Book details page URL
         const bookLink = row.querySelector('.authorAllBooks__singleTextTitle')?.href;
-        
+
         bookDetailPromises.push(
             bookLink ? getBookDetails(bookLink) : Promise.resolve("")
         );
@@ -113,13 +113,57 @@ async function getAllBooks(includeRating, includeReview) {
     return allBooks;
 }
 
+function formatGoodreads(books) {
+    books.forEach(book => {
+        // Convert myRating from 0-10 to 1-5 scale
+        let myRating = parseInt(book[3]);
+        if (!isNaN(myRating) && myRating > 0) {
+            book[3] = String(Math.ceil(myRating / 2));
+        }
+
+        // Date Read fill missing month/day with 01
+        let dateRead = book[9];
+        if (dateRead && /^\d{4}$/.test(dateRead)) {
+            book[9] = dateRead + '/01/01';
+        } else if (dateRead && /^\d{4}-\d{2}$/.test(dateRead)) {
+            book[9] = dateRead + '/01';
+        }
+
+        // Translate default shelves from Polish to English
+        const shelfMap = {
+            'chcę przeczytać': 'to-read',
+            'przeczytane': 'read',
+            'czytam teraz': 'currently-reading'
+        };
+        book[11] = book[11].split(',')
+            .map(shelf => shelf.trim())
+            .map(shelf => {
+                const lowerShelf = shelf.toLowerCase();
+                if (shelfMap.hasOwnProperty(lowerShelf)) {
+                    return shelfMap[lowerShelf];
+                }
+
+                // 'If your import file includes a field for tags or shelf names, separate multiple tag/shelf names with spaces.'
+                // goodreads does not allow spaces in shelf names
+                return shelf.replace(/ /g, '-');
+            })
+            .join(', ');
+    });
+
+    return books;
+}
+
 async function exportBooksToCSV(request) {
     const headers = [
         "Title", "Author", "ISBN", "My Rating", "Average Rating", "Publisher", "Binding", "Year Published", "Original Publication Year", "Date Read", "Date Added", "Shelves", "Bookshelves", "My Review"
     ];
     const includeRating = request?.includeRating ?? true;
     const includeReview = request?.includeReview ?? true;
-    const books = await getAllBooks(includeRating, includeReview);
+    const shouldFormatForGoodreads = request?.formatGoodreads ?? false;
+    let books = await getAllBooks(includeRating, includeReview);
+    if (shouldFormatForGoodreads) {
+        books = formatGoodreads(books);
+    }
     let csv = headers.join(',') + '\r\n';
     books.forEach(book => {
         csv += book.map(escapeCSV).join(',') + '\r\n';
@@ -135,7 +179,6 @@ async function exportBooksToCSV(request) {
     URL.revokeObjectURL(url);
 }
 
-// Listen for message from popup
 if (typeof chrome !== 'undefined' && chrome.runtime) {
     chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         if (request.action === 'export_books_csv') {

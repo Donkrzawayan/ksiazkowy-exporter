@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', function() {
 	const btn = document.getElementById('export-btn');
 	const ratingCheckbox = document.getElementById('include-rating');
 	const reviewCheckbox = document.getElementById('include-review');
+	const formatCheckbox = document.getElementById('format-goodreads');
     const formContainer = document.getElementById('form-container');
     const notOnPage = document.getElementById('not-on-page');
 	if (btn) {
@@ -13,14 +14,14 @@ document.addEventListener('DOMContentLoaded', function() {
 					chrome.tabs.sendMessage(tabs[0].id, {
 						action: 'export_books_csv',
 						includeRating: ratingCheckbox?.checked ?? true,
-						includeReview: reviewCheckbox?.checked ?? true
+						includeReview: reviewCheckbox?.checked ?? true,
+                        formatGoodreads: formatCheckbox?.checked ?? false
 					});
 				});
 			}
 		});
 	}
 
-    // Check active tab URL and toggle UI: show form only when on exact lubimyczytac biblioteczka page
     function isBiblioteczkaUrl(url) {
         try {
             const u = new URL(url);
@@ -30,10 +31,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Helper that updates the UI based on the currently active tab
     function updateForActiveTab() {
         if (!(chrome && chrome.tabs)) return;
-        debugger;
         chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
             const tab = tabs && tabs[0];
             const ok = tab && isBiblioteczkaUrl(tab.url);
@@ -80,6 +79,8 @@ function setLang(lang) {
     document.getElementById('title').textContent = t.title;
     document.getElementById('label-rating').textContent = t.labelRating;
     document.getElementById('label-review').textContent = t.labelReview;
+    document.getElementById('label-goodreads').textContent = t.labelGoodreads;
+    document.getElementById('label-goodreads').title = t.labelGoodreadsTitle;
     document.getElementById('export-btn').textContent = t.exportBtn;
     document.documentElement.lang = lang;
     // populate not-on-page texts if present
