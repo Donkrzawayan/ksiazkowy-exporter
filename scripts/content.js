@@ -23,68 +23,220 @@ function escapeCSV(val) {
     return val;
 }
 
-async function getBooksFromPage(includeRating, includeReview) {
-    const rows = document.querySelectorAll('.authorAllBooks__single');
-    const books = [];
-    const bookDetailPromises = [];
+function parseBookCard(row, includeRating, includeReview) {
+    // Title and book URL
+    const titleEl = row.querySelector('a.book-card__title, .book-card__title');
+    const title = (titleEl?.getAttribute('title') || titleEl?.textContent || '').replace(/\s+/g, ' ').trim();
 
-    for (const row of rows) {
-        // Title
-        const title = row.querySelector('.authorAllBooks__singleTextTitle')?.innerText.trim() || "";
-        // Author(s)
-        const authorLinks = row.querySelectorAll('.authorAllBooks__singleTextAuthor a');
-        let author = "";
-        if (authorLinks.length > 0) {
-            author = Array.from(authorLinks).map(a => a.innerText.trim()).join(', ');
-        } else {
-            author = row.querySelector('.authorAllBooks__singleTextAuthor')?.innerText.trim() || "";
-        }
-        // Ratings
-        let avgRating = "";
-        let myRating = "";
-        const ratingNodes = row.querySelectorAll('.listLibrary__ratingStarsNumber');
-        ratingNodes.forEach(node => {
-            // Find the closest .listLibrary__ratingText in the parent .listLibrary__rating
-            const ratingDiv = node.closest('.listLibrary__rating');
-            const label = ratingDiv?.querySelector('.listLibrary__ratingText')?.textContent?.trim() || "";
-            if (includeRating && label.includes('Twoja ocena')) {
-                myRating = node.innerText.trim();
-            } else if (label.includes('Średnia ocen')) {
-                avgRating = node.innerText.trim();
-            }
-        });
-        // Date Read
-        let dateRead = "";
-        const dateReadDiv = row.querySelector('.authorAllBooks__read-dates');
-        if (dateReadDiv) {
-            const match = dateReadDiv.innerText.match(/\d{4}(?:-\d{2}(?:-\d{2})?)?/);
-            dateRead = match ? match[0] : "";
-        }
-        // Shelves
-        const shelves = row.querySelector('.authorAllBooks__singleTextShelfRight')?.innerText.trim() || "";
-        // My Review
-        let myReview = "";
-        if (includeReview) {
-            myReview = row.querySelector('.expandTextNoJS')?.innerText.trim() || "";
-        }
-        // Book details page URL
-        const bookLink = row.querySelector('.authorAllBooks__singleTextTitle')?.href;
-
-        bookDetailPromises.push(
-            bookLink ? getBookDetails(bookLink) : Promise.resolve("")
-        );
-
-        books.push({
-            title, author, myRating, avgRating, dateRead, shelves, myReview
-        });
+    let bookUrl = titleEl?.getAttribute('href') || row.querySelector('form.book-card__cover-link')?.getAttribute('action') || "";
+    if (bookUrl && !bookUrl.startsWith('http')) {
+        try {
+            bookUrl = new URL(bookUrl, window.location.origin).href;
+        } catch (e) { }
     }
 
-    const isbns = await Promise.all(bookDetailPromises);
+    // Author(s)
+    const authorLinks = row.querySelectorAll('.book-card__author a, a[href*="/autor/"]');
+    let author = "";
+    if (authorLinks.length > 0) {
+        const authors = Array.from(authorLinks).map(a => a.textContent.replace(/\s+/g, ' ').trim()).filter(Boolean);
+        author = Array.from(new Set(authors)).join(', ');
+    } else {
+        author = row.querySelector('.book-card__author')?.textContent.replace(/\s+/g, ' ').trim() || "";
+    }
+
+    // My rating
+    let myRating = "";
+    if (includeRating) {
+        const myRatingEl = row.querySelector('.book-card__detail--my-rating .rating__avarage, .book-card__detail--my-rating .rating__average');
+        if (myRatingEl) {
+            myRating = myRatingEl.textContent.trim();
+        }
+    }
+
+    // Avg rating
+    let avgRating = "";
+    const avgRatingEl = row.querySelector('.book-card__detail--rating .rating__avarage, .book-card__detail--rating .rating__average');
+    if (avgRatingEl) {
+        avgRating = avgRatingEl.textContent.trim();
+    }
+
+    // Date Read
+    let dateRead = "";
+    const dateReadDiv = row.querySelector('.book-card__read-dates, [class*="read-date"]');
+    if (dateReadDiv) {
+        const match = dateReadDiv.innerText.match(/\d{4}(?:-\d{2}(?:-\d{2})?)?/);
+        dateRead = match ? match[0] : "";
+    }
+
+    // Shelves
+    const shelfNodes = row.querySelectorAll('.book-card__shelf');
+    let shelves = "";
+    if (shelfNodes.length > 0) {
+        const list = Array.from(shelfNodes).map(s => s.getAttribute('title')?.trim() || s.textContent.trim()).filter(Boolean);
+        shelves = Array.from(new Set(list)).join(', ');
+    }
+
+    // My Review
+    let myReview = "";
+    if (includeReview) {
+        const reviewEl = row.querySelector('.book-card__review p.expandTextNoJS, .expandTextNoJS');
+        if (reviewEl) {
+            myReview = reviewEl.textContent.trim();
+        }
+    }
+
+    return {
+        title,
+        author,
+        bookUrl,
+        myRating,
+        avgRating,
+        dateRead,
+        shelves,
+        myReview
+    };
+}
+
+
+function findObjectId() {
+    const fromUrl = new URLSearchParams(window.location.search).get('objectId');
+    if (fromUrl) return fromUrl;
+    const vp = document.querySelector('[data-viewparams*="accountId="]');
+    const m1 = vp?.getAttribute('data-viewparams').match(/accountId=(\d+)/);
+    if (m1) return m1[1];
+    const m2 = document.querySelector('a[href*="/profil/"]')?.getAttribute('href')?.match(/\/profil\/(\d+)/);
+    return m2 ? m2[1] : null;
+}
+
+function buildRequestBody(page) {
+    const src = new URLSearchParams(window.location.search);
+    const out = new URLSearchParams();
+    for (const [k, v] of src) {
+        if (k === 'page' || k === '_req') continue;
+        out.append(k, v);
+    }
+    if (!out.has('objectId')) {
+        const oid = findObjectId();
+        if (oid) out.set('objectId', oid);
+    }
+    if (!out.has('own')) out.set('own', '1');
+    if (!out.has('listId')) out.set('listId', 'booksFilteredList');
+    if (!out.has('listType')) out.set('listType', 'list');
+    if (!out.has('paginatorType')) out.set('paginatorType', 'Standard');
+    if (!out.has('findString')) out.set('findString', '');
+    if (!out.has('kolejnosc')) out.set('kolejnosc', 'data-dodania');
+    out.set('page', String(page));
+    return out.toString();
+}
+
+// Downloading a given page from the library via the internal service endpoint
+async function fetchLibraryPage(page) {
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
+    const response = await fetch('/profile/getLibraryBooksList', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest',
+            ...(csrf ? { 'X-CSRF-Token': csrf } : {})
+        },
+        body: buildRequestBody(page)
+    });
+
+    const raw = await response.text();
+    let html = raw;
+    try {
+        const json = JSON.parse(raw);
+        if (json.data && json.data.content) {
+            html = json.data.content;
+        } else if (typeof json === 'object') {
+            for (const val of Object.values(json)) {
+                if (typeof val === 'string' && /<\w[\s\S]*>/.test(val)) {
+                    html = val;
+                    break;
+                }
+            }
+        }
+    } catch (e) {
+    }
+
+    const parser = new DOMParser();
+    return parser.parseFromString(html, 'text/html');
+}
+
+function getTotalPages(doc) {
+    const pagerInput = doc.querySelector('input.jsPagerInput');
+    if (pagerInput) {
+        const maxAttr = pagerInput.getAttribute('data-maxpage') || pagerInput.getAttribute('max');
+        const parsedMax = parseInt(maxAttr, 10);
+        if (!isNaN(parsedMax) && parsedMax > 0) {
+            return parsedMax;
+        }
+    }
+
+    return 1;
+}
+
+async function fetchBooksFromLibrary(includeRating, includeReview) {
+    const collectedBooks = [];
+    const ROW_SELECTOR = '.book-card, [id^="listBookElement"]';
+    const DELAY_BETWEEN_PAGES_MS = 300;
+
+    let firstDoc;
+    try {
+        firstDoc = await fetchLibraryPage(1);
+    } catch (error) {
+        console.warn('[Exporter] Failed to fetch page 1:', error);
+        return collectedBooks;
+    }
+
+    const totalPages = getTotalPages(firstDoc);
+
+    for (let page = 1; page <= totalPages; page++) {
+        // Reuse the first page DOM instead of re-fetching it
+        let doc = (page === 1) ? firstDoc : null;
+
+        if (!doc) {
+            try {
+                doc = await fetchLibraryPage(page);
+            } catch (error) {
+                console.warn(`[Exporter] Failed to fetch page ${page} of ${totalPages}:`, error);
+                break;
+            }
+        }
+
+        const rows = doc.querySelectorAll(ROW_SELECTOR);
+        if (!rows || rows.length === 0) {
+            break;
+        }
+
+        for (const row of rows) {
+            const book = parseBookCard(row, includeRating, includeReview);
+            if (book.title) {
+                collectedBooks.push(book);
+            }
+        }
+
+        // Short pause to avoid rate limits
+        await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_PAGES_MS));
+    }
+
+    return collectedBooks;
+}
+
+async function getAllBooks(includeRating, includeReview) {
+    const books = await fetchBooksFromLibrary(includeRating, includeReview);
+
+    const isbnPromises = books.map(book =>
+        book.bookUrl ? getBookDetails(book.bookUrl) : Promise.resolve("")
+    );
+    const isbns = await Promise.all(isbnPromises);
 
     return books.map((book, idx) => [
         book.title,
         book.author,
-        isbns[idx],
+        isbns[idx] || "",
         book.myRating,
         book.avgRating,
         "", "", "", "", // publisher, binding, year published, original year
@@ -94,23 +246,6 @@ async function getBooksFromPage(includeRating, includeReview) {
         "", // bookshelves
         book.myReview
     ]);
-}
-
-async function getAllBooks(includeRating, includeReview) {
-    let allBooks = [];
-    while (true) {
-        allBooks = allBooks.concat(await getBooksFromPage(includeRating, includeReview));
-        // Find next page button
-        const nextBtn = document.querySelector('.page-item.next-page:not(.disabled) a.page-link');
-        if (nextBtn && nextBtn.getAttribute('data-page')) {
-            nextBtn.click();
-            // Wait for DOM update
-            await new Promise(resolve => setTimeout(resolve, 1200));
-        } else {
-            break;
-        }
-    }
-    return allBooks;
 }
 
 function formatGoodreads(books) {
