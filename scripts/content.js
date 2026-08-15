@@ -211,12 +211,21 @@ async function fetchBooksFromLibrary(includeRating, includeReview) {
             break;
         }
 
+        const pageBooks = [];
         for (const row of rows) {
             const book = parseBookCard(row, includeRating, includeReview);
             if (book.title) {
-                collectedBooks.push(book);
+                pageBooks.push(book);
             }
         }
+
+        await Promise.all(
+            pageBooks.map(async (book) => {
+                book.isbn = book.bookUrl ? await getBookDetails(book.bookUrl) : "";
+            })
+        );
+
+        collectedBooks.push(...pageBooks);
 
         // Short pause to avoid rate limits
         await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_PAGES_MS));
@@ -228,15 +237,10 @@ async function fetchBooksFromLibrary(includeRating, includeReview) {
 async function getAllBooks(includeRating, includeReview) {
     const books = await fetchBooksFromLibrary(includeRating, includeReview);
 
-    const isbnPromises = books.map(book =>
-        book.bookUrl ? getBookDetails(book.bookUrl) : Promise.resolve("")
-    );
-    const isbns = await Promise.all(isbnPromises);
-
     return books.map((book, idx) => [
         book.title,
         book.author,
-        isbns[idx] || "",
+        book.isbn || "",
         book.myRating,
         book.avgRating,
         "", "", "", "", // publisher, binding, year published, original year
