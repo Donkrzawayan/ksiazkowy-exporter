@@ -1,0 +1,40 @@
+name: 🐛 Zgłoszenie błędu / Bug Report
+description: Zgłoś problem z eksportem danych lub zmianę wyglądu serwisu / Report export failure or UI changes
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Dziękuję za zgłoszenie! / Thank you for reporting!  
+        Upewnij się, że używasz najnowszej wersji wtyczki. / Make sure you are using the latest version of the extension.
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Przeglądarka / Browser
+      description: Wybierz swoją przeglądarkę
+      options:
+        - Google Chrome
+        - Mozilla Firefox
+        - Brave / Opera / Edge / Inna Chromium
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Opis problemu / Issue Description
+      description: Co dokładnie nie działa? (np. nie pobiera ocen, pomija książki, eksport w ogóle nie startuje) / What is happening?
+    validations:
+      required: true
+  - type: textarea
+    id: sample_html
+    attributes:
+      label: HTML pojedynczej książki / Sample Book HTML
+      description: Kod z polecenia copy(document.querySelector('.book-card, [id^="listBookElement"]')?.outerHTML) w konsoli
+      render: html
+  - type: textarea
+    id: console_logs
+    attributes:
+      label: Błędy z konsoli (F12) / Console Errors
+      description: Wklej treść błędów z konsoli przeglądarki
+      render: shell
