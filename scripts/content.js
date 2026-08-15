@@ -10,6 +10,7 @@ async function getBookDetails(bookUrl) {
                    doc.querySelector('meta[name="isbn"]')?.content || "";
         return isbn;
     } catch (e) {
+        console.warn(`[Exporter] Failed to fetch ISBN for book ${bookUrl}`);
         return "";
     }
 }
@@ -32,7 +33,9 @@ function parseBookCard(row, includeRating, includeReview) {
     if (bookUrl && !bookUrl.startsWith('http')) {
         try {
             bookUrl = new URL(bookUrl, window.location.origin).href;
-        } catch (e) { }
+        } catch (e) {
+            console.warn(`[Exporter] Failed to fetch URL for book ${title}`);
+        }
     }
 
     // Author(s)
