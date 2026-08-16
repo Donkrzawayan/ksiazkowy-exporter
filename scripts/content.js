@@ -1,7 +1,45 @@
+async function fetchWithRetry(url, options = {}, retryWaitsMs = [3000, 7000, 15000]) {
+    for (let attempt = 0; ; attempt++) {
+        let response;
+        try {
+            response = await fetch(url, options);
+        } catch (err) {
+            if (attempt >= retryWaitsMs.length) throw err;
+            console.warn(`[Exporter] Network error for ${url}. Retrying in ${retryWaitsMs[attempt] / 1000}s...`);
+            await new Promise(resolve => setTimeout(resolve, retryWaitsMs[attempt]));
+            continue;
+        }
+
+        if (response.status === 429 || response.status === 503) {
+            try {
+                await response.body?.cancel();
+            } catch (_) { }
+
+            if (attempt >= retryWaitsMs.length) {
+                throw new Error(`[Exporter] HTTP ${response.status} after ${retryWaitsMs.length} retries`);
+            }
+
+            const retryAfterHeader = parseInt(response.headers.get('Retry-After') || '', 10);
+            const waitTimeMs = !isNaN(retryAfterHeader) && retryAfterHeader > 0
+                ? Math.min(retryAfterHeader * 1000, 60000)
+                : retryWaitsMs[attempt];
+
+            console.warn(`[Exporter] HTTP ${response.status} on ${url}. Throttled, waiting ${Math.round(waitTimeMs / 1000)}s...`);
+            await new Promise(resolve => setTimeout(resolve, waitTimeMs));
+            continue;
+        }
+        else if (!response.ok) {
+            throw new Error(`[Exporter] HTTP ${response.status} on ${url}.`);
+        }
+
+        return response;
+    }
+}
+
 // Fetch book details from book page: ISBN
 async function getBookDetails(bookUrl) {
     try {
-        const response = await fetch(bookUrl);
+        const response = await fetchWithRetry(bookUrl);
         const html = await response.text();
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
@@ -136,7 +174,7 @@ function buildRequestBody(page) {
 // Downloading a given page from the library via the internal service endpoint
 async function fetchLibraryPage(page) {
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
-    const response = await fetch('/profile/getLibraryBooksList', {
+    const response = await fetchWithRetry('/profile/getLibraryBooksList', {
         method: 'POST',
         credentials: 'same-origin',
         headers: {
