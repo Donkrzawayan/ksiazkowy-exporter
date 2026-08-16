@@ -106,7 +106,7 @@ function parseBookCard(row, includeRating, includeReview) {
     let dateRead = "";
     const dateReadDiv = row.querySelector('.book-card__read-dates, [class*="read-date"]');
     if (dateReadDiv) {
-        const match = dateReadDiv.innerText.match(/\d{4}(?:-\d{2}(?:-\d{2})?)?/);
+        const match = dateReadDiv.textContent.match(/\d{4}(?:-\d{2}(?:-\d{2})?)?/);
         dateRead = match ? match[0] : "";
     }
 

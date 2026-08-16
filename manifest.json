@@ -1,7 +1,7 @@
 {
   "name": "Książkowy eksporter",
   "description": "Rozszerzenie do eksportowania przeczytanych książek z serwisu lubimyczytac.pl",
-  "version": "1.3.3",
+  "version": "1.3.4",
   "manifest_version": 3,
   "action": {
     "default_popup": "popup.html",
