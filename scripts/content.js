@@ -1,3 +1,63 @@
+let progressElements = null;
+
+function updateProgressBar(current, total) {
+    const percent = Math.min(Math.round((current / total) * 100), 100);
+
+    if (!progressElements) {
+        const container = document.createElement('div');
+        container.id = 'lc-exporter-progress';
+        container.style.cssText = `
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 9999999;
+            background: #212529;
+            color: #ffffff;
+            padding: 16px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+            font-family: system-ui, -apple-system, sans-serif;
+            font-size: 15px;
+            min-width: 260px;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        `;
+        container.innerHTML = `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: 500;">
+                <span>Eksportowanie...</span>
+                <span class="lc-text" aria-live="polite">0%</span>
+            </div>
+            <div role="progressbar" 
+                 aria-label="Postęp eksportowania" 
+                 aria-valuemin="0" 
+                 aria-valuemax="100" 
+                 aria-valuenow="0"
+                 style="background: #495057; height: 10px; border-radius: 5px; overflow: hidden;">
+                <div class="lc-fill" style="background: #0d6efd; height: 100%; width: 0%; transition: width 0.2s ease;"></div>
+            </div>
+        `;
+        document.body.appendChild(container);
+
+        progressElements = {
+            container,
+            textEl: container.querySelector('.lc-text'),
+            barEl: container.querySelector('[role="progressbar"]'),
+            fillEl: container.querySelector('.lc-fill')
+        };
+    }
+
+    progressElements.textEl.textContent = `${current}/${total} (${percent}%)`;
+    progressElements.fillEl.style.width = `${percent}%`;
+    progressElements.barEl.setAttribute('aria-valuenow', String(percent));
+}
+
+function removeProgressBar() {
+    if (progressElements) {
+        progressElements.container.remove();
+        progressElements = null;
+    }
+}
+
 async function fetchWithRetry(url, options = {}, retryWaitsMs = [3000, 7000, 15000]) {
     for (let attempt = 0; ; attempt++) {
         let response;
@@ -45,7 +105,7 @@ async function getBookDetails(bookUrl) {
         const doc = parser.parseFromString(html, 'text/html');
         // ISBN
         let isbn = doc.querySelector('meta[property="books:isbn"]')?.content ||
-                   doc.querySelector('meta[name="isbn"]')?.content || "";
+            doc.querySelector('meta[name="isbn"]')?.content || "";
         return isbn;
     } catch (e) {
         console.warn(`[Exporter] Failed to fetch ISBN for book ${bookUrl}`);
@@ -233,6 +293,7 @@ async function fetchBooksFromLibrary(includeRating, includeReview) {
     }
 
     const totalPages = getTotalPages(firstDoc);
+    updateProgressBar(0, totalPages);
 
     for (let page = 1; page <= totalPages; page++) {
         // Reuse the first page DOM instead of re-fetching it
@@ -267,6 +328,8 @@ async function fetchBooksFromLibrary(includeRating, includeReview) {
         );
 
         collectedBooks.push(...pageBooks);
+
+        updateProgressBar(page, totalPages);
 
         // Short pause to avoid rate limits
         await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_PAGES_MS));
@@ -334,33 +397,37 @@ function formatGoodreads(books) {
 }
 
 async function exportBooksToCSV(request) {
-    const headers = [
-        "Title", "Author", "ISBN", "My Rating", "Average Rating", "Publisher", "Binding", "Year Published", "Original Publication Year", "Date Read", "Date Added", "Shelves", "Bookshelves", "My Review"
-    ];
-    const includeRating = request?.includeRating ?? true;
-    const includeReview = request?.includeReview ?? true;
-    const shouldFormatForGoodreads = request?.formatGoodreads ?? false;
-    let books = await getAllBooks(includeRating, includeReview);
-    if (shouldFormatForGoodreads) {
-        books = formatGoodreads(books);
+    try {
+        const headers = [
+            "Title", "Author", "ISBN", "My Rating", "Average Rating", "Publisher", "Binding", "Year Published", "Original Publication Year", "Date Read", "Date Added", "Shelves", "Bookshelves", "My Review"
+        ];
+        const includeRating = request?.includeRating ?? true;
+        const includeReview = request?.includeReview ?? true;
+        const shouldFormatForGoodreads = request?.formatGoodreads ?? false;
+        let books = await getAllBooks(includeRating, includeReview);
+        if (shouldFormatForGoodreads) {
+            books = formatGoodreads(books);
+        }
+        let csv = headers.join(',') + '\r\n';
+        books.forEach(book => {
+            csv += book.map(escapeCSV).join(',') + '\r\n';
+        });
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'lubimyczytac_export.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    } finally {
+        removeProgressBar();
     }
-    let csv = headers.join(',') + '\r\n';
-    books.forEach(book => {
-        csv += book.map(escapeCSV).join(',') + '\r\n';
-    });
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'lubimyczytac_export.csv';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
 }
 
 if (typeof chrome !== 'undefined' && chrome.runtime) {
-    chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+    chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
         if (request.action === 'export_books_csv') {
             exportBooksToCSV(request);
         }
